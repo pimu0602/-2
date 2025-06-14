@@ -53,6 +53,28 @@ class Bullet {
     }
 }
 
+// --- 敵弾クラス ---
+class EnemyBullet {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.width = 6;
+        this.height = 16;
+        this.speed = 7;
+        this.active = true;
+        this.color = '#f33'; // 赤色
+    }
+    update() {
+        this.y += this.speed;
+        if (this.y > 600) this.active = false;
+    }
+    draw(ctx) {
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
+}
+
+
 // --- 敵クラス ---
 class Enemy {
     constructor(x, y) {
@@ -144,7 +166,11 @@ class Game {
         // --- オブジェクト ---
         this.player = new Player(370, 560);
         this.bullets = [];
+        this.enemyBullets = [];
         this.enemyGroup = this.createEnemyGroup();
+        // --- 敵弾発射管理 ---
+        this.enemyShootInterval = 60 - this.level * 8; // レベルで短縮
+        this.enemyShootTimer = 0;
         // --- 入力 ---
         this.keyLeft = false;
         this.keyRight = false;
@@ -185,7 +211,10 @@ class Game {
         this.score = 0;
         this.player = new Player(370, 560);
         this.bullets = [];
+        this.enemyBullets = [];
         this.enemyGroup = this.createEnemyGroup();
+        this.enemyShootInterval = 60 - this.level * 8;
+        this.enemyShootTimer = 0;
         this.messageElem.textContent = '';
         this.scoreElem.textContent = 'スコア: 0';
         requestAnimationFrame(() => this.update());
@@ -195,7 +224,10 @@ class Game {
         this.state = GAME_STATE.PLAYING;
         this.player = new Player(370, 560);
         this.bullets = [];
+        this.enemyBullets = [];
         this.enemyGroup = this.createEnemyGroup();
+        this.enemyShootInterval = 60 - this.level * 8;
+        this.enemyShootTimer = 0;
         this.messageElem.textContent = '';
         requestAnimationFrame(() => this.update());
     }
@@ -219,8 +251,16 @@ class Game {
         if (this.keyRight) this.player.move(1);
         // --- 弾更新 ---
         for (const b of this.bullets) b.update();
+        // --- 敵弾更新 ---
+        for (const eb of this.enemyBullets) eb.update();
         // --- 敵移動 ---
         this.enemyGroup.update();
+        // --- 敵弾発射 ---
+        this.enemyShootTimer++;
+        if (this.enemyShootTimer >= this.enemyShootInterval) {
+            this.enemyShoot();
+            this.enemyShootTimer = 0;
+        }
         // --- 当たり判定 ---
         for (const b of this.bullets) {
             if (!b.active) continue;
@@ -234,8 +274,17 @@ class Game {
                 }
             }
         }
+        // --- 敵弾→プレイヤー当たり判定 ---
+        for (const eb of this.enemyBullets) {
+            if (eb.active && this.hitTest(eb, this.player)) {
+                eb.active = false;
+                this.state = GAME_STATE.GAMEOVER;
+                this.messageElem.textContent = 'ゲームオーバー';
+            }
+        }
         // --- 弾の消去 ---
         this.bullets = this.bullets.filter(b => b.active);
+        this.enemyBullets = this.enemyBullets.filter(eb => eb.active);
         // --- 敵全滅判定 ---
         if (this.enemyGroup.isAllDefeated()) {
             if (this.level < this.maxLevel) {
@@ -260,6 +309,17 @@ class Game {
             requestAnimationFrame(() => this.update());
         }
     }
+    // --- 敵弾発射 ---
+    enemyShoot() {
+        // アクティブな敵からランダム1体を選び発射
+        const shooters = this.enemyGroup.enemies.filter(e => e.active);
+        if (shooters.length === 0) return;
+        const idx = Math.floor(Math.random() * shooters.length);
+        const e = shooters[idx];
+        const bx = e.x + e.width / 2 - 3;
+        const by = e.y + e.height;
+        this.enemyBullets.push(new EnemyBullet(bx, by));
+    }
     // --- 当たり判定 ---
     hitTest(a, b) {
         return (
@@ -277,6 +337,8 @@ class Game {
         if (this.state !== GAME_STATE.READY) this.player.draw(this.ctx);
         // --- 弾 ---
         for (const b of this.bullets) b.draw(this.ctx);
+        // --- 敵弾 ---
+        for (const eb of this.enemyBullets) eb.draw(this.ctx);
         // --- 敵 ---
         this.enemyGroup.draw(this.ctx);
     }
