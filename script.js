@@ -229,9 +229,31 @@ function gameLoop() {
 
 // スタートボタンのイベントリスナー
 startButton.addEventListener('click', () => {
-    gameState = new GameState();
-    gameState.isRunning = true;
-    gameState.gameOver = false;
-    messageElement.textContent = '';
-    gameLoop();
+    gameState.restart();
+});
+
+// スペースキーの処理をゲームオーバー時のみに制限
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') keys.left = true;
+    if (e.key === 'ArrowRight') keys.right = true;
+    if (e.key === ' ') {
+        if (!gameState.gameOver) {
+            keys.space = true;
+            if (!keys.spacePressed) {
+                gameState.bullets.push(new Bullet(gameState.player.x + gameState.player.width / 2 - 2, gameState.player.y));
+                keys.spacePressed = true;
+            }
+        } else {
+            gameState.restart();
+        }
+    }
+});
+
+document.addEventListener('keyup', (e) => {
+    if (e.key === 'ArrowLeft') keys.left = false;
+    if (e.key === 'ArrowRight') keys.right = false;
+    if (e.key === ' ') {
+        keys.space = false;
+        keys.spacePressed = false;
+    }
 });
