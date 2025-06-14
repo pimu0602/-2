@@ -135,19 +135,31 @@ class Game {
         this.scoreElem = document.getElementById('score');
         this.messageElem = document.getElementById('message');
         this.startBtn = document.getElementById('startBtn');
+        // --- レベル管理 ---
+        this.level = 1;
+        this.maxLevel = 5;
         // --- ゲーム状態 ---
         this.state = GAME_STATE.READY;
         this.score = 0;
         // --- オブジェクト ---
         this.player = new Player(370, 560);
         this.bullets = [];
-        this.enemyGroup = new EnemyGroup(4, 5);
+        this.enemyGroup = this.createEnemyGroup();
         // --- 入力 ---
         this.keyLeft = false;
         this.keyRight = false;
         // --- イベント登録 ---
         this.initEvents();
         this.render();
+    }
+    // レベルに応じた敵編隊生成
+    createEnemyGroup() {
+        // レベルごとに敵の数や速度を変化
+        let rows = 4 + Math.floor((this.level - 1) / 2); // 4,4,5,5,6
+        let cols = 5 + ((this.level - 1) % 2);           // 5,6,5,6,5
+        let group = new EnemyGroup(rows, cols);
+        group.speed = 2 + this.level - 1; // レベルごとに速く
+        return group;
     }
     // --- イベント登録 ---
     initEvents() {
@@ -168,13 +180,23 @@ class Game {
     }
     // --- ゲーム開始 ---
     start() {
+        this.level = 1;
         this.state = GAME_STATE.PLAYING;
         this.score = 0;
         this.player = new Player(370, 560);
         this.bullets = [];
-        this.enemyGroup = new EnemyGroup(4, 5);
+        this.enemyGroup = this.createEnemyGroup();
         this.messageElem.textContent = '';
         this.scoreElem.textContent = 'スコア: 0';
+        requestAnimationFrame(() => this.update());
+    }
+    // レベル開始処理
+    startLevel() {
+        this.state = GAME_STATE.PLAYING;
+        this.player = new Player(370, 560);
+        this.bullets = [];
+        this.enemyGroup = this.createEnemyGroup();
+        this.messageElem.textContent = '';
         requestAnimationFrame(() => this.update());
     }
     // --- 弾発射 ---
@@ -216,8 +238,17 @@ class Game {
         this.bullets = this.bullets.filter(b => b.active);
         // --- 敵全滅判定 ---
         if (this.enemyGroup.isAllDefeated()) {
-            this.state = GAME_STATE.WIN;
-            this.messageElem.textContent = '勝利！おめでとう！';
+            if (this.level < this.maxLevel) {
+                this.state = GAME_STATE.WIN;
+                this.messageElem.textContent = `レベル${this.level}クリア！ 次のレベルへ...`;
+                setTimeout(() => {
+                    this.level++;
+                    this.startLevel();
+                }, 1800);
+            } else {
+                this.state = GAME_STATE.WIN;
+                this.messageElem.textContent = 'レベル5クリア！完全クリア！おめでとう！';
+            }
         }
         // --- 敵が下端到達 ---
         if (this.enemyGroup.reachedBottom()) {
