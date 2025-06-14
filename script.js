@@ -190,13 +190,22 @@ const keys = {
 document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowLeft') keys.left = true;
     if (e.key === 'ArrowRight') keys.right = true;
-    if (e.key === ' ') keys.space = true;
+    if (e.key === ' ' && !gameState.gameOver) {
+        keys.space = true;
+        if (!keys.spacePressed) {
+            gameState.bullets.push(new Bullet(gameState.player.x + gameState.player.width / 2 - 2, gameState.player.y));
+            keys.spacePressed = true;
+        }
+    }
 });
 
 document.addEventListener('keyup', (e) => {
     if (e.key === 'ArrowLeft') keys.left = false;
     if (e.key === 'ArrowRight') keys.right = false;
-    if (e.key === ' ') keys.space = false;
+    if (e.key === ' ') {
+        keys.space = false;
+        keys.spacePressed = false;
+    }
 });
 
 // ゲーム状態の初期化
