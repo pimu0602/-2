@@ -100,6 +100,19 @@ class GameState {
                a.y < b.y + b.height &&
                a.y + a.height > b.y;
     }
+
+    // ゲームの再起動メソッド
+    restart() {
+        this.score = 0;
+        this.enemies = [];
+        this.bullets = [];
+        this.player = new Player();
+        this.initializeEnemies();
+        this.isRunning = true;
+        this.gameOver = false;
+        messageElement.textContent = '';
+        gameLoop();
+    }
 }
 
 // プレイヤークラス
@@ -232,20 +245,19 @@ startButton.addEventListener('click', () => {
     gameState.restart();
 });
 
-// スペースキーの処理をゲームオーバー時のみに制限
+// スペースキーはゲーム中のみ弾発射。ゲームオーバー時は無効。
 document.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowLeft') keys.left = true;
     if (e.key === 'ArrowRight') keys.right = true;
     if (e.key === ' ') {
-        if (!gameState.gameOver) {
+        if (gameState.isRunning && !gameState.gameOver) {
             keys.space = true;
             if (!keys.spacePressed) {
                 gameState.bullets.push(new Bullet(gameState.player.x + gameState.player.width / 2 - 2, gameState.player.y));
                 keys.spacePressed = true;
             }
-        } else {
-            gameState.restart();
         }
+        // ゲームオーバー時はスペースキーを何もしない
     }
 });
 
