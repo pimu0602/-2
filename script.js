@@ -1,271 +1,257 @@
-// ゲーム全体の設定
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const startButton = document.getElementById('startButton');
-const scoreElement = document.getElementById('score');
-const messageElement = document.getElementById('message');
+// =============================
+// インベーダーゲーム メインロジック
+// =============================
 
-// Canvasサイズの設定
-canvas.width = 800;
-canvas.height = 600;
+// --- ゲーム状態定義 ---
+const GAME_STATE = {
+    READY: 'ready',
+    PLAYING: 'playing',
+    WIN: 'win',
+    GAMEOVER: 'gameover'
+};
 
-// ゲーム状態管理
-class GameState {
-    constructor() {
-        this.isRunning = false;
-        this.score = 0;
-        this.player = new Player();
-        this.enemies = [];
-        this.bullets = [];
-        this.gameOver = false;
-        this.initializeEnemies();
-    }
-
-    initializeEnemies() {
-        const rows = 5;
-        const cols = 4;
-        const enemyWidth = 50;
-        const enemyHeight = 50;
-        const spacing = 60;
-
-        for (let i = 0; i < rows; i++) {
-            for (let j = 0; j < cols; j++) {
-                this.enemies.push(new Enemy(
-                    100 + j * spacing,
-                    50 + i * spacing,
-                    enemyWidth,
-                    enemyHeight
-                ));
-            }
-        }
-    }
-
-    update() {
-        if (!this.isRunning || this.gameOver) return;
-
-        // プレイヤーの更新
-        this.player.update();
-
-        // 敵の更新
-        this.enemies.forEach(enemy => enemy.update());
-
-        // 弾の更新
-        this.bullets.forEach((bullet, index) => {
-            bullet.update();
-            if (bullet.y < 0) {
-                this.bullets.splice(index, 1);
-            }
-        });
-
-        // 当たり判定
-        this.checkCollisions();
-
-        // 敵の移動判定
-        this.checkEnemyMovement();
-
-        // スコア更新
-        scoreElement.textContent = `スコア: ${this.score}`;
-    }
-
-    checkCollisions() {
-        this.bullets.forEach((bullet, bulletIndex) => {
-            this.enemies.forEach((enemy, enemyIndex) => {
-                if (this.isColliding(bullet, enemy)) {
-                    this.bullets.splice(bulletIndex, 1);
-                    this.enemies.splice(enemyIndex, 1);
-                    this.score += 10;
-                }
-            });
-        });
-    }
-
-    checkEnemyMovement() {
-        const enemies = this.enemies;
-        if (enemies.length === 0) {
-            this.gameOver = true;
-            messageElement.textContent = '勝利！';
-            return;
-        }
-
-        const bottomEnemy = enemies.reduce((prev, curr) => prev.y > curr.y ? prev : curr);
-        if (bottomEnemy.y > canvas.height - 50) {
-            this.gameOver = true;
-            messageElement.textContent = 'ゲームオーバー！';
-        }
-    }
-
-    isColliding(a, b) {
-        return a.x < b.x + b.width &&
-               a.x + a.width > b.x &&
-               a.y < b.y + b.height &&
-               a.y + a.height > b.y;
-    }
-
-    // ゲームの再起動メソッド
-    restart() {
-        this.score = 0;
-        this.enemies = [];
-        this.bullets = [];
-        this.player = new Player();
-        this.initializeEnemies();
-        this.isRunning = true;
-        this.gameOver = false;
-        messageElement.textContent = '';
-        gameLoop();
-    }
-}
-
-// プレイヤークラス
+// --- プレイヤークラス ---
 class Player {
-    constructor() {
-        this.x = canvas.width / 2;
-        this.y = canvas.height - 30;
-        this.width = 50;
-        this.height = 30;
-        this.speed = 5;
-    }
-
-    update() {
-        // キー入力による移動
-        if (keys.left && this.x > 0) this.x -= this.speed;
-        if (keys.right && this.x < canvas.width - this.width) this.x += this.speed;
-
-        // スペースキーで弾を発射
-        if (keys.space && !keys.spacePressed) {
-            gameState.bullets.push(new Bullet(this.x + this.width / 2 - 2, this.y));
-            keys.spacePressed = true;
-        }
-        if (!keys.space) keys.spacePressed = false;
-    }
-
-    draw() {
-        ctx.fillStyle = '#00FF00';
-        ctx.fillRect(this.x, this.y, this.width, this.height);
-    }
-}
-
-// 敵クラス
-class Enemy {
-    constructor(x, y, width, height) {
+    constructor(x, y) {
         this.x = x;
         this.y = y;
-        this.width = width;
-        this.height = height;
-        this.direction = 1;
-        this.speed = 2;
+        this.width = 60;
+        this.height = 20;
+        this.speed = 6;
+        this.color = '#fff';
+        this.isShooting = false;
     }
-
-    update() {
-        // 左右移動
-        this.x += this.direction * this.speed;
-
-        // 画面端に到達した場合
-        if (this.x < 0 || this.x > canvas.width - this.width) {
-            this.direction *= -1;
-            this.y += 20;
-        }
+    move(dir) {
+        this.x += dir * this.speed;
+        if (this.x < 0) this.x = 0;
+        if (this.x + this.width > 800) this.x = 800 - this.width;
     }
-
-    draw() {
-        ctx.fillStyle = '#FF0000';
+    draw(ctx) {
+        ctx.fillStyle = this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
     }
 }
 
-// 弾クラス
+// --- 弾クラス ---
 class Bullet {
     constructor(x, y) {
         this.x = x;
         this.y = y;
-        this.width = 4;
-        this.height = 10;
-        this.speed = 5;
+        this.width = 6;
+        this.height = 16;
+        this.speed = 10;
+        this.active = true;
+        this.color = '#fff';
     }
-
     update() {
         this.y -= this.speed;
+        if (this.y + this.height < 0) this.active = false;
     }
-
-    draw() {
-        ctx.fillStyle = '#FFFF00';
+    draw(ctx) {
+        ctx.fillStyle = this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
     }
 }
 
-// キー入力管理
-const keys = {
-    left: false,
-    right: false,
-    space: false,
-    spacePressed: false
-};
-
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowLeft') keys.left = true;
-    if (e.key === 'ArrowRight') keys.right = true;
-    if (e.key === ' ' && !gameState.gameOver) {
-        keys.space = true;
-        if (!keys.spacePressed) {
-            gameState.bullets.push(new Bullet(gameState.player.x + gameState.player.width / 2 - 2, gameState.player.y));
-            keys.spacePressed = true;
-        }
+// --- 敵クラス ---
+class Enemy {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.width = 40;
+        this.height = 28;
+        this.color = '#0f0';
+        this.active = true;
     }
-});
-
-document.addEventListener('keyup', (e) => {
-    if (e.key === 'ArrowLeft') keys.left = false;
-    if (e.key === 'ArrowRight') keys.right = false;
-    if (e.key === ' ') {
-        keys.space = false;
-        keys.spacePressed = false;
-    }
-});
-
-// ゲーム状態の初期化
-let gameState = new GameState();
-
-// ゲームループ
-function gameLoop() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    gameState.update();
-
-    // 描画
-    gameState.player.draw();
-    gameState.bullets.forEach(bullet => bullet.draw());
-    gameState.enemies.forEach(enemy => enemy.draw());
-
-    if (gameState.isRunning && !gameState.gameOver) {
-        requestAnimationFrame(gameLoop);
+    draw(ctx) {
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
     }
 }
 
-// スタートボタンのイベントリスナー
-startButton.addEventListener('click', () => {
-    gameState.restart();
-});
-
-// スペースキーはゲーム中のみ弾発射。ゲームオーバー時は無効。
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowLeft') keys.left = true;
-    if (e.key === 'ArrowRight') keys.right = true;
-    if (e.key === ' ') {
-        if (gameState.isRunning && !gameState.gameOver) {
-            keys.space = true;
-            if (!keys.spacePressed) {
-                gameState.bullets.push(new Bullet(gameState.player.x + gameState.player.width / 2 - 2, gameState.player.y));
-                keys.spacePressed = true;
+// --- 敵編隊クラス ---
+class EnemyGroup {
+    constructor(rows, cols) {
+        this.rows = rows;
+        this.cols = cols;
+        this.enemies = [];
+        this.dir = 1; // 1:右, -1:左
+        this.speed = 2;
+        this.stepDown = 18;
+        this.frameCount = 0;
+        this.init();
+    }
+    // 敵を初期配置
+    init() {
+        this.enemies = [];
+        for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+                this.enemies.push(new Enemy(80 + c * 60, 50 + r * 50));
             }
         }
-        // ゲームオーバー時はスペースキーを何もしない
     }
-});
+    // 敵の移動処理
+    update() {
+        let edge = false;
+        for (const e of this.enemies) {
+            if (!e.active) continue;
+            e.x += this.speed * this.dir;
+            if (e.x < 0 || e.x + e.width > 800) edge = true;
+        }
+        // 端に到達したら全体で下に移動し、方向転換
+        if (edge) {
+            this.dir *= -1;
+            for (const e of this.enemies) {
+                if (e.active) e.y += this.stepDown;
+            }
+        }
+    }
+    // 敵の描画
+    draw(ctx) {
+        for (const e of this.enemies) {
+            if (e.active) e.draw(ctx);
+        }
+    }
+    // 1体でも下端に到達したか判定
+    reachedBottom() {
+        for (const e of this.enemies) {
+            if (e.active && e.y + e.height >= 580) return true;
+        }
+        return false;
+    }
+    // 全滅判定
+    isAllDefeated() {
+        return this.enemies.every(e => !e.active);
+    }
+}
 
-document.addEventListener('keyup', (e) => {
-    if (e.key === 'ArrowLeft') keys.left = false;
-    if (e.key === 'ArrowRight') keys.right = false;
-    if (e.key === ' ') {
-        keys.space = false;
-        keys.spacePressed = false;
+// --- ゲーム管理クラス ---
+class Game {
+    constructor() {
+        // --- Canvas/Context取得 ---
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        // --- UI要素 ---
+        this.scoreElem = document.getElementById('score');
+        this.messageElem = document.getElementById('message');
+        this.startBtn = document.getElementById('startBtn');
+        // --- ゲーム状態 ---
+        this.state = GAME_STATE.READY;
+        this.score = 0;
+        // --- オブジェクト ---
+        this.player = new Player(370, 560);
+        this.bullets = [];
+        this.enemyGroup = new EnemyGroup(4, 5);
+        // --- 入力 ---
+        this.keyLeft = false;
+        this.keyRight = false;
+        // --- イベント登録 ---
+        this.initEvents();
+        this.render();
     }
-});
+    // --- イベント登録 ---
+    initEvents() {
+        document.addEventListener('keydown', e => {
+            if (this.state !== GAME_STATE.PLAYING) return;
+            if (e.code === 'ArrowLeft') this.keyLeft = true;
+            if (e.code === 'ArrowRight') this.keyRight = true;
+            if (e.code === 'Space') {
+                e.preventDefault(); // デフォルト動作抑止（再起動防止）
+                this.shoot();
+            }
+        });
+        document.addEventListener('keyup', e => {
+            if (e.code === 'ArrowLeft') this.keyLeft = false;
+            if (e.code === 'ArrowRight') this.keyRight = false;
+        });
+        this.startBtn.addEventListener('click', () => this.start());
+    }
+    // --- ゲーム開始 ---
+    start() {
+        this.state = GAME_STATE.PLAYING;
+        this.score = 0;
+        this.player = new Player(370, 560);
+        this.bullets = [];
+        this.enemyGroup = new EnemyGroup(4, 5);
+        this.messageElem.textContent = '';
+        this.scoreElem.textContent = 'スコア: 0';
+        requestAnimationFrame(() => this.update());
+    }
+    // --- 弾発射 ---
+    shoot() {
+        // 連射防止: 画面上に弾がない時のみ
+        if (this.bullets.length === 0 || this.bullets.every(b => !b.active)) {
+            const bx = this.player.x + this.player.width / 2 - 3;
+            const by = this.player.y - 16;
+            this.bullets.push(new Bullet(bx, by));
+        }
+    }
+    // --- メインループ ---
+    update() {
+        if (this.state !== GAME_STATE.PLAYING) {
+            this.render();
+            return;
+        }
+        // --- 入力処理 ---
+        if (this.keyLeft) this.player.move(-1);
+        if (this.keyRight) this.player.move(1);
+        // --- 弾更新 ---
+        for (const b of this.bullets) b.update();
+        // --- 敵移動 ---
+        this.enemyGroup.update();
+        // --- 当たり判定 ---
+        for (const b of this.bullets) {
+            if (!b.active) continue;
+            for (const e of this.enemyGroup.enemies) {
+                if (e.active && this.hitTest(b, e)) {
+                    b.active = false;
+                    e.active = false;
+                    this.score++;
+                    this.scoreElem.textContent = `スコア: ${this.score}`;
+                    break;
+                }
+            }
+        }
+        // --- 弾の消去 ---
+        this.bullets = this.bullets.filter(b => b.active);
+        // --- 敵全滅判定 ---
+        if (this.enemyGroup.isAllDefeated()) {
+            this.state = GAME_STATE.WIN;
+            this.messageElem.textContent = '勝利！おめでとう！';
+        }
+        // --- 敵が下端到達 ---
+        if (this.enemyGroup.reachedBottom()) {
+            this.state = GAME_STATE.GAMEOVER;
+            this.messageElem.textContent = 'ゲームオーバー';
+        }
+        this.render();
+        if (this.state === GAME_STATE.PLAYING) {
+            requestAnimationFrame(() => this.update());
+        }
+    }
+    // --- 当たり判定 ---
+    hitTest(a, b) {
+        return (
+            a.x < b.x + b.width &&
+            a.x + a.width > b.x &&
+            a.y < b.y + b.height &&
+            a.y + a.height > b.y
+        );
+    }
+    // --- 描画 ---
+    render() {
+        // --- 画面クリア ---
+        this.ctx.clearRect(0, 0, 800, 600);
+        // --- プレイヤー ---
+        if (this.state !== GAME_STATE.READY) this.player.draw(this.ctx);
+        // --- 弾 ---
+        for (const b of this.bullets) b.draw(this.ctx);
+        // --- 敵 ---
+        this.enemyGroup.draw(this.ctx);
+    }
+}
+
+// --- ゲーム初期化 ---
+window.onload = () => {
+    new Game();
+};

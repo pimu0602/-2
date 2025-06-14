@@ -2,17 +2,18 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>インベーダーゲーム</title>
+    <meta name="viewport" content="width=800">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="game-container">
-        <canvas id="gameCanvas"></canvas>
-        <div id="gameInfo">
-            <button id="startButton">ゲーム開始</button>
-            <div id="score">スコア: 0</div>
-            <div id="message"></div>
+    <div id="container">
+        <h1>インベーダーゲーム</h1>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="ui">
+            <button id="startBtn">スタート</button>
+            <span id="score">スコア: 0</span>
+            <span id="message"></span>
         </div>
     </div>
     <script src="script.js"></script>
